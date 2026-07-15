@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Getaway Scout</title>
+<style>
+  :root {
+    --bg: #0e1116; --panel: #171c24; --panel2: #1f2630;
+    --text: #e8ecf1; --muted: #8b95a5; --line: #2a3341;
+    --accent: #4da3ff; --hot: #ff7849; --good: #3ecf8e;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: 40px;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(14,17,22,.94); backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 16px 10px;
+  }
+  .titlebar { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  h1 { font-size: 19px; letter-spacing: .2px; }
+  #stats { color: var(--muted); font-size: 12.5px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; align-items: center; }
+  .chip {
+    border: 1px solid var(--line); background: var(--panel);
+    color: var(--muted); border-radius: 999px; padding: 5px 11px;
+    font-size: 12.5px; cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #08111d; font-weight: 600; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+  select, input[type=number], input[type=search] {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 9px; font-size: 13px;
+  }
+  input[type=search] { flex: 1; min-width: 130px; }
+  input[type=number] { width: 96px; }
+  #scanBtn {
+    margin-left: auto; background: var(--panel2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px;
+    font-size: 13px; cursor: pointer;
+  }
+  #scanBtn:disabled { opacity: .5; }
+  main { padding: 12px 12px 0; max-width: 760px; margin: 0 auto; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .card a.title { color: var(--text); text-decoration: none; font-weight: 600; font-size: 15px; }
+  .card a.title:hover { color: var(--accent); }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; align-items: center; }
+  .price { color: var(--good); font-weight: 700; font-size: 14px; }
+  .tag { font-size: 11.5px; color: var(--muted); background: var(--panel2);
+         border-radius: 6px; padding: 2px 7px; }
+  .tag.region { color: var(--accent); }
+  .tag.urgent { color: var(--hot); font-weight: 600; }
+  .tag.when { color: var(--good); font-weight: 600; }
+  .chip.urgent-on { background: var(--hot); border-color: var(--hot); color: #14100c; font-weight: 600; }
+  .score { margin-left: auto; font-size: 11.5px; font-weight: 700;
+           border-radius: 6px; padding: 2px 8px; background: var(--panel2); color: var(--muted); }
+  .score.hot { color: var(--hot); }
+  .score.solid { color: var(--good); }
+  #empty { color: var(--muted); text-align: center; padding: 48px 0; }
+  #calWrap { overflow-x: auto; margin-bottom: 12px; }
+  #calendar {
+    display: grid; grid-template-columns: repeat(7, minmax(96px, 1fr));
+    gap: 4px; min-width: 700px;
+  }
+  .cal-head { color: var(--muted); font-size: 11px; text-align: center; padding: 2px 0; }
+  .cal-day {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    min-height: 74px; padding: 5px 6px; cursor: pointer; overflow: hidden;
+  }
+  .cal-day:hover { border-color: var(--accent); }
+  .cal-day.other-month { opacity: .45; }
+  .cal-day.today { border-color: var(--accent); }
+  .cal-day.weekend { background: var(--panel2); }
+  .cal-date { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .cal-ev {
+    font-size: 10.5px; line-height: 1.25; margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--text);
+  }
+  .cal-ev.starred { color: var(--hot); font-weight: 600; }
+  .cal-more { font-size: 10px; color: var(--accent); margin-top: 2px; }
+  #calNote { color: var(--muted); font-size: 12px; margin: 8px 2px 0; }
+  .star-btn { cursor: pointer; font-size: 16px; color: var(--muted); float: right; padding: 0 2px; }
+  .star-btn.on { color: var(--hot); }
+  #dayFilter { margin-bottom: 10px; }
+  #toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 10px; padding: 9px 16px; font-size: 13px; display: none;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="titlebar">
+    <h1>&#129523; Getaway Scout</h1>
+    <span id="stats">loading&hellip;</span>
+  </div>
+  <div class="controls" id="regionChips">
+    <span class="chip active" data-region="">All</span>
+    <span class="chip" data-region="sydney-local">Sydney local</span>
+    <span class="chip" data-region="nsw-drivable">NSW drives</span>
+    <span class="chip" data-region="domestic">Domestic</span>
+    <span class="chip" data-region="pacific">NZ &amp; Pacific</span>
+    <span class="chip" data-region="asia">Asia</span>
+    <span class="chip" data-region="longhaul">Long-haul</span>
+    <span class="chip" data-region="unknown">Other</span>
+    <span class="chip" id="urgentChip">&#9889; Last minute</span>
+  </div>
+  <div class="row2">
+    <select id="people" title="Travellers">
+      <option value="1">1 person</option>
+      <option value="2" selected>2 people</option>
+      <option value="3">3 people</option>
+      <option value="4">4 people</option>
+      <option value="5">5 people</option>
+      <option value="6">6 people</option>
+    </select>
+    <select id="type">
+      <option value="">Everything</option>
+      <option value="flight">Flights</option>
+      <option value="package">Packages</option>
+      <option value="event">Events</option>
+    </select>
+    <select id="duration">
+      <option value="">Any length</option>
+      <option value="2-4">2-4 days</option>
+      <option value="5-7">5-7 days</option>
+      <option value="8-10">8-10 days</option>
+      <option value="unknown">Length not stated</option>
+    </select>
+    <select id="sort">
+      <option value="newest">Newest</option>
+      <option value="score">Best match</option>
+      <option value="price">Cheapest</option>
+      <option value="soonest">Soonest</option>
+    </select>
+    <input type="number" id="maxPrice" placeholder="Max total $" min="0" step="50">
+  </div>
+  <div class="row2">
+    <input type="search" id="search" placeholder="Search deals&hellip;">
+    <span class="chip view-chip active" data-view="list">List</span>
+    <span class="chip view-chip" data-view="calendar">&#128197; Month</span>
+    <button id="scanBtn">&#8635; Scan now</button>
+  </div>
+</header>
+
+<main>
+  <div id="dayFilter" hidden>
+    <span class="chip urgent-on" id="dayFilterChip"></span>
+  </div>
+  <div id="calWrap" hidden>
+    <div id="calendar"></div>
+    <div id="calNote">Tap a day to see its events. &#9733; starred items highlighted.</div>
+  </div>
+  <div id="list"></div>
+  <div id="empty" hidden>No deals match these filters.</div>
+</main>
+<div id="toast"></div>
+
+<script>window.STATIC_MODE = true;</script>
+<script>
+"use strict";
+const REGION_LABELS = {
+  "sydney-local": "Sydney", "nsw-drivable": "NSW drive", "domestic": "Domestic",
+  "pacific": "NZ/Pacific", "asia": "Asia",
+  "longhaul": "Long-haul", "unknown": "Other",
+};
+let allDeals = [];
+const state = { region: "", type: "", duration: "", sort: "newest",
+                maxPrice: null, search: "", people: 2, urgentOnly: false,
+                view: "list", day: "" };
+
+function localDateKey(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/* Estimated total for the travelling party, from the advertised price
+   basis. Returns null when the basis is unknown (can't honestly estimate). */
+function groupTotal(rec) {
+  if (rec.price_min == null) return null;
+  const n = state.people;
+  switch (rec.price_basis) {
+    case "per_person": return rec.price_min * n;
+    case "for_2": return rec.price_min * Math.ceil(n / 2);
+    case "for_4": return rec.price_min * Math.ceil(n / 4);
+    default: return null;
+  }
+}
+
+function effectivePrice(rec) {
+  const total = groupTotal(rec);
+  return total != null ? total : rec.price_min;
+}
+
+const STATIC_MODE = !!window.STATIC_MODE;
+let generatedAt = null;
+
+function localStars() {
+  try { return new Set(JSON.parse(localStorage.getItem("scout_stars") || "[]")); }
+  catch (e) { return new Set(); }
+}
+
+async function loadDeals() {
+  try {
+    const res = await fetch(STATIC_MODE ? "deals.json" : "/api/deals");
+    const data = await res.json();
+    allDeals = data.deals || [];
+    generatedAt = data.generated || null;
+    if (STATIC_MODE) {
+      const stars = localStars();
+      allDeals.forEach(d => { d.starred = stars.has(d.deal_id); });
+    }
+    render();
+  } catch (e) {
+    document.getElementById("stats").textContent = "failed to load deals";
+  }
+}
+
+function ageOf(rec) {
+  const iso = rec.published || rec.first_seen;
+  if (!iso) return "";
+  const hours = Math.max(0, (Date.now() - new Date(iso)) / 36e5);
+  if (hours < 1) return "just in";
+  if (hours < 48) return Math.round(hours) + "h ago";
+  return Math.round(hours / 24) + "d ago";
+}
+
+function durationBucket(days) {
+  if (days == null) return "unknown";
+  if (days <= 4) return "2-4";
+  if (days <= 7) return "5-7";
+  return "8-10";
+}
+
+function matches(rec) {
+  if (state.day && (!rec.event_date || localDateKey(rec.event_date) !== state.day)) return false;
+  if (state.urgentOnly && !rec.urgent) return false;
+  if (state.region && rec.region !== state.region) return false;
+  if (state.type && rec.category !== state.type) return false;
+  if (state.duration && durationBucket(rec.duration_days) !== state.duration) return false;
+  if (state.maxPrice != null) {
+    const eff = effectivePrice(rec);
+    if (eff == null || eff > state.maxPrice) return false;
+  }
+  if (state.search && !rec.title.toLowerCase().includes(state.search)) return false;
+  return true;
+}
+
+function sortDeals(list) {
+  const copy = [...list];
+  if (state.sort === "score") copy.sort((a, b) => b.score - a.score);
+  else if (state.sort === "price")
+    copy.sort((a, b) => (effectivePrice(a) ?? 1e9) - (effectivePrice(b) ?? 1e9));
+  else if (state.sort === "soonest")
+    copy.sort((a, b) => (a.event_date || "9999").localeCompare(b.event_date || "9999"));
+  else copy.sort((a, b) =>
+    (b.published || b.first_seen || "").localeCompare(a.published || a.first_seen || ""));
+  return copy;
+}
+
+function esc(s) {
+  return s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+
+const BASIS_LABELS = {
+  "per_person": "pp", "for_2": "for 2", "for_4": "for 4", "unknown": "basis?",
+};
+
+function cardHtml(rec) {
+  const scoreCls = rec.score >= 6 ? "hot" : rec.score >= 4 ? "solid" : "";
+  const star = `<span class="star-btn ${rec.starred ? "on" : ""}" data-id="${rec.deal_id}" title="Star for my plan">${rec.starred ? "&#9733;" : "&#9734;"}</span>`;
+  const bits = [];
+  if (rec.price_min != null) {
+    const basis = BASIS_LABELS[rec.price_basis] || "";
+    bits.push(`<span class="price">from $${rec.price_min.toLocaleString()} ${basis}</span>`);
+    const total = groupTotal(rec);
+    if (total != null && total !== rec.price_min)
+      bits.push(`<span class="tag">&#8776; $${total.toLocaleString()} for ${state.people}</span>`);
+  }
+  if (rec.duration_days != null) bits.push(`<span class="tag">~${rec.duration_days} days</span>`);
+  if (rec.event_date) {
+    const d = new Date(rec.event_date);
+    bits.push(`<span class="tag when">${d.toLocaleDateString("en-AU",
+      { weekday: "short", day: "numeric", month: "short" })}</span>`);
+  }
+  if (rec.urgent) bits.push(`<span class="tag urgent">&#9889; last minute</span>`);
+  bits.push(`<span class="tag region">${REGION_LABELS[rec.region] || rec.region}</span>`);
+  bits.push(`<span class="tag">${rec.category}</span>`);
+  bits.push(`<span class="tag">${rec.source} &middot; ${ageOf(rec)}</span>`);
+  bits.push(`<span class="score ${scoreCls}">&#9733; ${rec.score}</span>`);
+  return `<div class="card">
+    ${star}
+    <a class="title" href="${esc(rec.url)}" target="_blank" rel="noopener">${esc(rec.title)}</a>
+    <div class="meta">${bits.join("")}</div>
+  </div>`;
+}
+
+function renderCalendar() {
+  const byDay = {};
+  allDeals.forEach(rec => {
+    if (!rec.event_date) return;
+    const key = localDateKey(rec.event_date);
+    (byDay[key] = byDay[key] || []).push(rec);
+  });
+  Object.values(byDay).forEach(list =>
+    list.sort((a, b) => (b.starred - a.starred) || (b.score - a.score)));
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7)); // back to Monday
+  const todayKey = localDateKey(today.toISOString());
+
+  let html = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+    .map(d => `<div class="cal-head">${d}</div>`).join("");
+  for (let i = 0; i < 42; i++) {
+    const day = new Date(start);
+    day.setDate(start.getDate() + i);
+    const key = localDateKey(day.toISOString());
+    const evs = byDay[key] || [];
+    const classes = ["cal-day"];
+    if (day < today) classes.push("other-month");
+    if (key === todayKey) classes.push("today");
+    if (day.getDay() === 0 || day.getDay() === 6) classes.push("weekend");
+    const label = day.getDate() === 1
+      ? day.toLocaleDateString("en-AU", { day: "numeric", month: "short" })
+      : day.getDate();
+    const chips = evs.slice(0, 3).map(e =>
+      `<div class="cal-ev ${e.starred ? "starred" : ""}">${e.starred ? "&#9733; " : ""}${esc(e.title.slice(0, 26))}</div>`).join("");
+    const more = evs.length > 3 ? `<div class="cal-more">+${evs.length - 3} more</div>` : "";
+    html += `<div class="${classes.join(" ")}" data-day="${key}">
+      <div class="cal-date">${label}</div>${chips}${more}</div>`;
+  }
+  document.getElementById("calendar").innerHTML = html;
+}
+
+function render() {
+  const isCal = state.view === "calendar";
+  document.getElementById("calWrap").hidden = !isCal;
+  document.getElementById("list").hidden = isCal;
+  document.querySelectorAll(".view-chip").forEach(c =>
+    c.classList.toggle("active", c.dataset.view === state.view));
+
+  const dayFilter = document.getElementById("dayFilter");
+  dayFilter.hidden = !state.day || isCal;
+  if (state.day) {
+    const d = new Date(state.day + "T12:00:00");
+    document.getElementById("dayFilterChip").textContent =
+      "✕ " + d.toLocaleDateString("en-AU",
+        { weekday: "long", day: "numeric", month: "long" });
+  }
+
+  if (isCal) {
+    renderCalendar();
+    const dated = allDeals.filter(d => d.event_date).length;
+    document.getElementById("stats").textContent =
+      `${dated} dated events of ${allDeals.length} deals`;
+    document.getElementById("empty").hidden = true;
+    return;
+  }
+  const visible = sortDeals(allDeals.filter(matches));
+  document.getElementById("list").innerHTML = visible.map(cardHtml).join("");
+  document.getElementById("empty").hidden = visible.length > 0;
+  const updated = generatedAt
+    ? ` · updated ${new Date(generatedAt).toLocaleTimeString("en-AU",
+        { hour: "numeric", minute: "2-digit" })}`
+    : "";
+  document.getElementById("stats").textContent =
+    `${visible.length} of ${allDeals.length} deals${updated}`;
+}
+
+document.addEventListener("click", async e => {
+  const viewChip = e.target.closest(".view-chip");
+  if (viewChip) {
+    state.view = viewChip.dataset.view;
+    render();
+    return;
+  }
+  const dayCell = e.target.closest(".cal-day");
+  if (dayCell) {
+    state.day = dayCell.dataset.day;
+    state.view = "list";
+    render();
+    return;
+  }
+  if (e.target.closest("#dayFilterChip")) {
+    state.day = "";
+    render();
+    return;
+  }
+  const starBtn = e.target.closest(".star-btn");
+  if (starBtn) {
+    const id = starBtn.dataset.id;
+    const rec = allDeals.find(d => d.deal_id === id);
+    if (!rec) return;
+    const want = !rec.starred;
+    rec.starred = want;
+    render();
+    if (STATIC_MODE) {
+      const stars = localStars();
+      if (want) stars.add(id); else stars.delete(id);
+      try { localStorage.setItem("scout_stars", JSON.stringify([...stars])); }
+      catch (err) {}
+      return;
+    }
+    try {
+      const res = await fetch("/api/star", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deal_id: id, starred: want }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      rec.starred = !want;
+      render();
+      toast("Could not save star");
+    }
+  }
+});
+
+document.getElementById("regionChips").addEventListener("click", e => {
+  const chip = e.target.closest(".chip");
+  if (!chip || chip.dataset.region === undefined) return;
+  document.querySelectorAll("#regionChips .chip").forEach(c => c.classList.remove("active"));
+  chip.classList.add("active");
+  state.region = chip.dataset.region;
+  render();
+});
+document.getElementById("urgentChip").addEventListener("click", e => {
+  state.urgentOnly = !state.urgentOnly;
+  e.target.classList.toggle("urgent-on", state.urgentOnly);
+  render();
+});
+document.getElementById("people").addEventListener("change", e => {
+  state.people = Number(e.target.value);
+  try { localStorage.setItem("scout_people", e.target.value); } catch (err) {}
+  render();
+});
+try {
+  const savedPeople = localStorage.getItem("scout_people");
+  if (savedPeople) {
+    state.people = Number(savedPeople);
+    document.getElementById("people").value = savedPeople;
+  }
+} catch (err) {}
+document.getElementById("type").addEventListener("change", e => { state.type = e.target.value; render(); });
+document.getElementById("duration").addEventListener("change", e => { state.duration = e.target.value; render(); });
+document.getElementById("sort").addEventListener("change", e => { state.sort = e.target.value; render(); });
+document.getElementById("maxPrice").addEventListener("input", e => {
+  state.maxPrice = e.target.value === "" ? null : Number(e.target.value); render();
+});
+document.getElementById("search").addEventListener("input", e => {
+  state.search = e.target.value.trim().toLowerCase(); render();
+});
+
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.style.display = "block";
+  setTimeout(() => { el.style.display = "none"; }, 4000);
+}
+
+document.getElementById("scanBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("scanBtn");
+  btn.disabled = true; btn.textContent = "Scanning…";
+  try {
+    const res = await fetch("/api/scan", { method: "POST" });
+    const data = await res.json();
+    toast(data.ok ? "Scan complete" : ("Scan failed: " + (data.error || "unknown")));
+    if (data.ok) await loadDeals();
+  } catch (e) {
+    toast("Scan failed: " + e.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = "&#8635; Scan now";
+  }
+});
+
+if (STATIC_MODE) document.getElementById("scanBtn").style.display = "none";
+loadDeals();
+setInterval(loadDeals, 5 * 60 * 1000);
+</script>
+</body>
+</html>
