@@ -90,6 +90,13 @@
   #calNote { color: var(--muted); font-size: 12px; margin: 8px 2px 0; }
   .star-btn { cursor: pointer; font-size: 16px; color: var(--muted); float: right; padding: 0 2px; }
   .star-btn.on { color: var(--hot); }
+  .vote-btn { cursor: pointer; font-size: 14px; color: var(--muted); float: right;
+              padding: 0 5px; user-select: none; opacity: .75; }
+  .vote-btn:hover { opacity: 1; }
+  .vote-btn.on { color: var(--good); opacity: 1; }
+  .vote-btn.on-down { color: var(--hot); opacity: 1; }
+  .why { font-size: 10.5px; color: var(--muted); background: transparent;
+         border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
   #dayFilter { margin-bottom: 10px; }
   #toast {
     position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
@@ -114,6 +121,7 @@
     <span class="chip" data-region="longhaul">Long-haul</span>
     <span class="chip" data-region="unknown">Other</span>
     <span class="chip" id="urgentChip">&#9889; Last minute</span>
+    <span class="chip" id="hiddenChip" hidden></span>
   </div>
   <div class="row2">
     <select id="people" title="Travellers">
@@ -177,7 +185,12 @@ const REGION_LABELS = {
 let allDeals = [];
 const state = { region: "", type: "", duration: "", sort: "newest",
                 maxPrice: null, search: "", people: 2, urgentOnly: false,
-                view: "list", day: "" };
+                view: "list", day: "", showHidden: false };
+
+function localVotes() {
+  try { return JSON.parse(localStorage.getItem("scout_votes") || "{}"); }
+  catch (e) { return {}; }
+}
 
 function localDateKey(iso) {
   const d = new Date(iso);
@@ -218,7 +231,11 @@ async function loadDeals() {
     generatedAt = data.generated || null;
     if (STATIC_MODE) {
       const stars = localStars();
-      allDeals.forEach(d => { d.starred = stars.has(d.deal_id); });
+      const votes = localVotes();
+      allDeals.forEach(d => {
+        d.starred = stars.has(d.deal_id);
+        d.vote = votes[d.deal_id] || null;
+      });
     }
     render();
   } catch (e) {
@@ -243,6 +260,8 @@ function durationBucket(days) {
 }
 
 function matches(rec) {
+  if (rec.vote === "down" && !state.showHidden) return false;
+  if (state.showHidden && rec.vote !== "down") return false;
   if (state.day && (!rec.event_date || localDateKey(rec.event_date) !== state.day)) return false;
   if (state.urgentOnly && !rec.urgent) return false;
   if (state.region && rec.region !== state.region) return false;
@@ -258,7 +277,8 @@ function matches(rec) {
 
 function sortDeals(list) {
   const copy = [...list];
-  if (state.sort === "score") copy.sort((a, b) => b.score - a.score);
+  const rank = r => r.score + (r.vote === "up" ? 3 : 0) + (r.starred ? 1 : 0);
+  if (state.sort === "score") copy.sort((a, b) => rank(b) - rank(a));
   else if (state.sort === "price")
     copy.sort((a, b) => (effectivePrice(a) ?? 1e9) - (effectivePrice(b) ?? 1e9));
   else if (state.sort === "soonest")
@@ -276,9 +296,37 @@ const BASIS_LABELS = {
   "per_person": "pp", "for_2": "for 2", "for_4": "for 4", "unknown": "basis?",
 };
 
+const REASON_LABELS = {
+  "sydney": "ex SYD", "all-cities": "all cities", "national-sale": "national",
+  "weekend": "weekend fit", "local-event": "local", "this-week": "this week",
+  "cheap-flight": "sharp fare", "cheap-package": "sharp price",
+  "hot-longhaul-price": "hot fare", "last-minute": "ends soon",
+  "local-drive": "drivable", "upvoted": "community 👍",
+};
+
+function whyChips(rec) {
+  const reasons = (rec.reasons || [])
+    .filter(r => !r.startsWith("taste") && r !== "uncategorised")
+    .slice(0, 3)
+    .map(r => {
+      if (REASON_LABELS[r]) return REASON_LABELS[r];
+      if (r.startsWith("int:")) return r.slice(4).replace("-", " ");
+      if (r.startsWith("dest:")) return r.slice(5);
+      if (r.endsWith("d-fit")) return r.replace("d-fit", " days");
+      return null;
+    })
+    .filter(Boolean);
+  const taste = (rec.reasons || []).find(r => r.startsWith("taste"));
+  if (taste) reasons.push(`your taste ${taste.slice(5)}`);
+  return reasons.map(r => `<span class="why">${esc(r)}</span>`).join("");
+}
+
 function cardHtml(rec) {
   const scoreCls = rec.score >= 6 ? "hot" : rec.score >= 4 ? "solid" : "";
   const star = `<span class="star-btn ${rec.starred ? "on" : ""}" data-id="${rec.deal_id}" title="Star for my plan">${rec.starred ? "&#9733;" : "&#9734;"}</span>`;
+  const votes =
+    `<span class="vote-btn ${rec.vote === "down" ? "on-down" : ""}" data-vote="down" data-id="${rec.deal_id}" title="Not for me - hide and learn">&#128078;</span>` +
+    `<span class="vote-btn ${rec.vote === "up" ? "on" : ""}" data-vote="up" data-id="${rec.deal_id}" title="More like this">&#128077;</span>`;
   const bits = [];
   if (rec.price_min != null) {
     const basis = BASIS_LABELS[rec.price_basis] || "";
@@ -298,8 +346,9 @@ function cardHtml(rec) {
   bits.push(`<span class="tag">${rec.category}</span>`);
   bits.push(`<span class="tag">${rec.source} &middot; ${ageOf(rec)}</span>`);
   bits.push(`<span class="score ${scoreCls}">&#9733; ${rec.score}</span>`);
+  bits.push(whyChips(rec));
   return `<div class="card">
-    ${star}
+    ${star}${votes}
     <a class="title" href="${esc(rec.url)}" target="_blank" rel="noopener">${esc(rec.title)}</a>
     <div class="meta">${bits.join("")}</div>
   </div>`;
@@ -367,6 +416,12 @@ function render() {
     document.getElementById("empty").hidden = true;
     return;
   }
+  const hiddenCount = allDeals.filter(d => d.vote === "down").length;
+  const hiddenChip = document.getElementById("hiddenChip");
+  hiddenChip.hidden = hiddenCount === 0;
+  hiddenChip.textContent = state.showHidden
+    ? `✕ showing ${hiddenCount} hidden` : `Hidden (${hiddenCount})`;
+
   const visible = sortDeals(allDeals.filter(matches));
   document.getElementById("list").innerHTML = visible.map(cardHtml).join("");
   document.getElementById("empty").hidden = visible.length > 0;
@@ -395,6 +450,37 @@ document.addEventListener("click", async e => {
   if (e.target.closest("#dayFilterChip")) {
     state.day = "";
     render();
+    return;
+  }
+  const voteBtn = e.target.closest(".vote-btn");
+  if (voteBtn) {
+    const id = voteBtn.dataset.id;
+    const rec = allDeals.find(d => d.deal_id === id);
+    if (!rec) return;
+    const want = rec.vote === voteBtn.dataset.vote ? "clear" : voteBtn.dataset.vote;
+    const prev = rec.vote;
+    rec.vote = want === "clear" ? null : want;
+    render();
+    if (want === "down") toast("Hidden - the radar will learn from this");
+    if (STATIC_MODE) {
+      const votes = localVotes();
+      if (want === "clear") delete votes[id]; else votes[id] = want;
+      try { localStorage.setItem("scout_votes", JSON.stringify(votes)); }
+      catch (err) {}
+      return;
+    }
+    try {
+      const res = await fetch("/api/vote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deal_id: id, vote: want }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      rec.vote = prev;
+      render();
+      toast("Could not save vote");
+    }
     return;
   }
   const starBtn = e.target.closest(".star-btn");
@@ -438,6 +524,11 @@ document.getElementById("regionChips").addEventListener("click", e => {
 document.getElementById("urgentChip").addEventListener("click", e => {
   state.urgentOnly = !state.urgentOnly;
   e.target.classList.toggle("urgent-on", state.urgentOnly);
+  render();
+});
+document.getElementById("hiddenChip").addEventListener("click", e => {
+  state.showHidden = !state.showHidden;
+  e.target.classList.toggle("urgent-on", state.showHidden);
   render();
 });
 document.getElementById("people").addEventListener("change", e => {
