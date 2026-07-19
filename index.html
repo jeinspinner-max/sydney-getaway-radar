@@ -6,9 +6,9 @@
 <title>Getaway Scout</title>
 <style>
   :root {
-    --bg: #0e1116; --panel: #171c24; --panel2: #1f2630;
-    --text: #e8ecf1; --muted: #8b95a5; --line: #2a3341;
-    --accent: #4da3ff; --hot: #ff7849; --good: #3ecf8e;
+    --bg: #f7f8fa; --panel: #ffffff; --panel2: #f1f3f6;
+    --text: #17212e; --muted: #68738a; --line: #e5e9ef;
+    --accent: #0b74de; --hot: #e8541e; --good: #0d8a5f;
   }
   * { box-sizing: border-box; margin: 0; }
   body {
@@ -18,20 +18,20 @@
   }
   #hero {
     background:
-      radial-gradient(ellipse 90% 120% at 85% -20%, rgba(77,163,255,.28), transparent),
-      radial-gradient(ellipse 70% 100% at 10% 120%, rgba(255,120,73,.18), transparent),
-      linear-gradient(150deg, #101722, #0e1116);
+      radial-gradient(ellipse 90% 120% at 85% -20%, rgba(11,116,222,.10), transparent),
+      radial-gradient(ellipse 70% 100% at 10% 120%, rgba(232,84,30,.06), transparent),
+      #ffffff;
     padding: 34px 18px 26px; border-bottom: 1px solid var(--line);
   }
   #hero h1 {
     font-size: 30px; font-weight: 800; letter-spacing: -.6px;
-    background: linear-gradient(100deg, #fff, #9cc8ff);
+    background: linear-gradient(100deg, #17212e, #0b74de);
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
   #hero p { color: var(--muted); font-size: 14.5px; margin-top: 6px; max-width: 520px; }
   header {
     position: sticky; top: 0; z-index: 10;
-    background: rgba(14,17,22,.94); backdrop-filter: blur(6px);
+    background: rgba(255,255,255,.94); backdrop-filter: blur(6px);
     border-bottom: 1px solid var(--line);
     padding: 12px 16px 10px;
   }
@@ -44,7 +44,7 @@
     color: var(--muted); border-radius: 999px; padding: 5px 11px;
     font-size: 12.5px; cursor: pointer; user-select: none; white-space: nowrap;
   }
-  .chip.active { background: var(--accent); border-color: var(--accent); color: #08111d; font-weight: 600; }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #ffffff; font-weight: 600; }
   .row2 { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
   select, input[type=number], input[type=search] {
     background: var(--panel); color: var(--text); border: 1px solid var(--line);
@@ -69,7 +69,9 @@
     display: flex; flex-direction: column;
     transition: transform .12s ease, border-color .12s ease;
   }
-  .card:hover { transform: translateY(-2px); border-color: #3a4a60; }
+  .card { box-shadow: 0 1px 3px rgba(16,24,40,.07); }
+  .card:hover { transform: translateY(-2px); border-color: #c9d4e2;
+    box-shadow: 0 6px 18px rgba(16,24,40,.10); }
   .thumb {
     width: 100%; height: 136px; flex: none;
     overflow: hidden; position: relative; display: flex;
@@ -88,10 +90,10 @@
   .badge.when-badge { left: auto; right: 10px; font-weight: 600;
     color: var(--good); }
   .card-body { flex: 1; min-width: 0; padding: 11px 14px 13px; }
-  .t-flight { background: linear-gradient(135deg, #16324f, #2a5d8f); }
-  .t-package { background: linear-gradient(135deg, #14453b, #2a7a5f); }
-  .t-event { background: linear-gradient(135deg, #4a2c52, #7a4a8a); }
-  .t-other { background: linear-gradient(135deg, #333a45, #4a5566); }
+  .t-flight { background: linear-gradient(135deg, #dceafc, #b5d4f5); }
+  .t-package { background: linear-gradient(135deg, #d9f2e6, #b2e0cc); }
+  .t-event { background: linear-gradient(135deg, #ecdff2, #d5bce4); }
+  .t-other { background: linear-gradient(135deg, #e8ebf0, #d4dae3); }
   #rail { margin-bottom: 12px; }
   #railTitle { font-size: 13px; font-weight: 700; color: var(--hot); margin: 2px 2px 8px; }
   #railScroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
@@ -119,7 +121,7 @@
   .tag.region { color: var(--accent); }
   .tag.urgent { color: var(--hot); font-weight: 600; }
   .tag.when { color: var(--good); font-weight: 600; }
-  .chip.urgent-on { background: var(--hot); border-color: var(--hot); color: #14100c; font-weight: 600; }
+  .chip.urgent-on { background: var(--hot); border-color: var(--hot); color: #ffffff; font-weight: 600; }
   .score { margin-left: auto; font-size: 11.5px; font-weight: 700;
            border-radius: 6px; padding: 2px 8px; background: var(--panel2); color: var(--muted); }
   .score.hot { color: var(--hot); }
@@ -434,7 +436,6 @@ function cardHtml(rec) {
   bits.push(`<span class="tag">${rec.category}</span>`);
   bits.push(`<span class="tag">${rec.source} &middot; ${ageOf(rec)}</span>`);
   bits.push(`<span class="score ${scoreCls}">&#9733; ${rec.score}</span>`);
-  bits.push(whyChips(rec));
   return `<div class="card">
     ${thumbHtml(rec, "thumb")}
     <div class="card-body">
