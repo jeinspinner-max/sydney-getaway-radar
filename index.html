@@ -200,10 +200,11 @@
       <option value="6">6 people</option>
     </select>
     <select id="type">
+      <option value="travel" selected>&#9992;&#65039; Travel deals</option>
+      <option value="event">&#127903;&#65039; Events</option>
+      <option value="flight">Flights only</option>
+      <option value="package">Packages only</option>
       <option value="">Everything</option>
-      <option value="flight">Flights</option>
-      <option value="package">Packages</option>
-      <option value="event">Events</option>
     </select>
     <select id="duration">
       <option value="">Any length</option>
@@ -257,6 +258,7 @@ let allDeals = [];
 const state = { region: "", type: "", duration: "", sort: "newest",
                 maxPrice: null, search: "", people: 2, urgentOnly: false,
                 view: "list", day: "", showHidden: false };
+state.type = "travel";
 
 function localVotes() {
   try { return JSON.parse(localStorage.getItem("scout_votes") || "{}"); }
@@ -336,7 +338,9 @@ function matches(rec) {
   if (state.day && (!rec.event_date || localDateKey(rec.event_date) !== state.day)) return false;
   if (state.urgentOnly && !rec.urgent) return false;
   if (state.region && rec.region !== state.region) return false;
-  if (state.type && rec.category !== state.type) return false;
+  if (state.type === "travel") {
+    if (rec.category === "event") return false;
+  } else if (state.type && rec.category !== state.type) return false;
   if (state.duration && durationBucket(rec.duration_days) !== state.duration) return false;
   if (state.maxPrice != null) {
     const eff = effectivePrice(rec);
